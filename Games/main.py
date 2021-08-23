@@ -41,7 +41,7 @@ def menu(width, height, mouse_pos=None, clicked=None, first=False):
     global page
     new = pygame.Surface((width, height), pygame.SRCALPHA).convert_alpha()
 
-    icon_size = int(height / 4.5)
+    icon_size = min(int(height / 4.5), int(width / 8.25))
     icon_rect = (icon_size, icon_size)
     icon_gap = icon_size / 4
 
@@ -65,8 +65,8 @@ def menu(width, height, mouse_pos=None, clicked=None, first=False):
             if page * 18 <= i < (page + 1) * 18:
                 x = (i - page * 18) % 6
                 y = (i - page * 18) // 6
-                pos = x_off + x * (icon_size + icon_gap), y_off + \
-                    y * (icon_size + icon_gap)
+                pos = (x_off + x * (icon_size + icon_gap), 
+                       y_off + y * (icon_size + icon_gap))
                 new.blit(games_list[game], pos)
                 text = font.render(game, True, (0, 0, 0))
                 new.blit(text, (pos[0] + icon_size / 2 -
