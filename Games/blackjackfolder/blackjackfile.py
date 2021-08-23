@@ -14,6 +14,7 @@ stand_btn = Button(0, 0, 0, 0, message="STAND", fit_text_options="text", base_co
 bust_lbl = Label(0, 0, 0, 0, message="BUST", font_colour=(255, 0, 0), bold=True, fit_text_options="text", base_colour=None, border_colour=None, horizontal_alignment="center", verticle_alignment="center")
 outcome_lbl = Label(0, 0, 0, 0, message="", font_colour=(0, 0, 0), fit_text_options="text", base_colour=None, border_colour=None, horizontal_alignment="center", verticle_alignment="center")
 back_btn = Button(0, 0, 0, 0, message="BACK", fit_text_options="text", base_colour=None, horizontal_alignment="center", verticle_alignment="center")
+play_again_btn = Button(0, 0, 0, 0, message="PLAY AGAIN", fit_text_options="text", base_colour=None, horizontal_alignment="center", verticle_alignment="center")
 
 
 class Game:
@@ -40,7 +41,8 @@ class Game:
         self.hand_bust = False
         self.dealer_bust = False
         self.stood = False
-        self.game_over = True
+        self.playing = False
+        self.game_over = False
 
     def draw_card(self, hand):
         card = self.deck.pop(0)
@@ -79,17 +81,18 @@ class Game:
             self.dealer_bust = self.dealer_total > 21
 
     def hit(self):
-        self.game_over = False
+        self.playing = True
         if not self.dealing and not self.stood:
             self.hand.append(self.draw_card(True))
             self.hand_anim = self.max_anim
             self.dealing = True
 
     def stand(self):
-        self.stood = True
-        self.show = True
-        self.flip_card = self.max_anim
-        self.dealing = True
+        if not self.dealing:
+            self.stood = True
+            self.show = True
+            self.flip_card = self.max_anim
+            self.dealing = True
 
     def display_cards(self, wn):
         c_width = card_imgs["back"].get_width()
@@ -156,6 +159,7 @@ class Game:
         return ""
 
     def winner(self):
+        self.playing = False
         self.game_over = True
         if self.hand_bust and self.dealer_bust:
             return "Draw"
@@ -200,12 +204,19 @@ def setup(width, height):
     outcome_lbl.fit_text(outcome_lbl.message)
     outcome_lbl.x = int(width / 2 - outcome_lbl.width / 2)
     outcome_lbl.y = int(height / 2 - outcome_lbl.height * 1.5)
+    outcome_lbl.message = ""
     
-    back_btn.width = c_width
-    back_btn.height = int(c_height / 3)
+    back_btn.width = int(c_width / 2)
+    back_btn.height = int(c_height / 6)
     back_btn.fit_text(back_btn.message)
     back_btn.x = 10
     back_btn.y = 10
+    
+    play_again_btn.width = int(c_width / 2)
+    play_again_btn.height = int(c_height / 6)
+    play_again_btn.fit_text(play_again_btn.message)
+    play_again_btn.x = int(width / 2 - play_again_btn.width / 2)
+    play_again_btn.y = int(height / 2 + bust_lbl.height / 2 + play_again_btn.height / 2)
     
 
 def redraw(wn, bg_img, game):
@@ -217,7 +228,10 @@ def redraw(wn, bg_img, game):
     if game.hand_bust:
         bust_lbl.draw(wn)
     outcome_lbl.draw(wn)
-    back_btn.draw(wn)
+    if not game.playing:
+        back_btn.draw(wn)
+    if game.game_over:
+        play_again_btn.draw(wn)
 
     pygame.display.update()
 
@@ -240,8 +254,11 @@ def Blackjack(wn, WIDTH, HEIGHT, bg_img):
                         game.hit()
                     if stand_btn.click(mouse):
                         game.stand()
-                    if back_btn.click(mouse) and game.game_over:
+                    if back_btn.click(mouse) and not game.playing:
                         return "back"
+                    if play_again_btn.click(mouse) and game.game_over:
+                        setup(WIDTH, HEIGHT)
+                        game = Game(WIDTH, HEIGHT)
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
