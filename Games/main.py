@@ -1,10 +1,11 @@
-import pygame
 import os
-from math import *
-pygame.init()
-
 dir_path = os.path.dirname(os.path.realpath(__file__))
 os.chdir(dir_path)
+
+import pygame
+from math import *
+from blackjackfolder.blackjackfile import Blackjack
+pygame.init()
 
 screen = pygame.display.Info()
 WIDTH = screen.current_w
@@ -12,9 +13,10 @@ HEIGHT = screen.current_h
 wn = pygame.display.set_mode((WIDTH, HEIGHT), flags=pygame.FULLSCREEN)
 
 background_img = pygame.transform.scale(
-    pygame.image.load("images/table.jpg"), (WIDTH, HEIGHT))
+    pygame.image.load("images/table.png"), (WIDTH, HEIGHT))
 
-games_list = {"Blackjack": pygame.image.load("images/logos/Blackjack.jpg")}
+games_list = {"Blackjack": pygame.image.load("images/logos/Blackjack.png")}
+games_funcs = {"Blackjack": Blackjack}
 
 page = 0
 
@@ -101,33 +103,37 @@ def redraw(mouse_pos, clicked):
 
 
 def main_menu():
-
     menu(WIDTH, HEIGHT, first=True)
 
+    clock = pygame.time.Clock()
     run = True
     while run:
+        clock.tick(60)
+
         mouse_pos = pygame.mouse.get_pos()
         clicked = False
 
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    quit()
+                    return
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     clicked = True
 
             if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
+                return
 
         selected_game = redraw(mouse_pos, clicked)
 
         if selected_game:
-            print("ok")
+            exit_msg = games_funcs[selected_game](wn, WIDTH, HEIGHT, background_img)
+
+            if exit_msg == "quit":
+                return
 
 
 if __name__ == "__main__":
     main_menu()
+    pygame.quit()
