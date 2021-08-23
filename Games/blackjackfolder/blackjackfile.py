@@ -1,8 +1,7 @@
 import pygame
-from pygame.constants import APPINPUTFOCUS
-from pygame.version import ver
+from pygame.constants import MOUSEBUTTONDOWN
 from tbVectors import Vector
-from PygameTemplates import Button
+from PygameTemplates import Button, Label
 from deckfuncs import get_deck
 import os
 
@@ -12,6 +11,9 @@ for img in os.listdir("images/cards"):
 
 hit_btn = Button(0, 0, 0, 0, message="HIT", fit_text_options="text", base_colour=None, horizontal_alignment="center", verticle_alignment="center")
 stand_btn = Button(0, 0, 0, 0, message="STAND", fit_text_options="text", base_colour=None, horizontal_alignment="center", verticle_alignment="center")
+bust_lbl = Label(0, 0, 0, 0, message="BUST", font_colour=(255, 0, 0), bold=True, fit_text_options="text", base_colour=None, border_colour=None, horizontal_alignment="center", verticle_alignment="center")
+outcome_lbl = Label(0, 0, 0, 0, message="", font_colour=(0, 0, 0), fit_text_options="text", base_colour=None, border_colour=None, horizontal_alignment="center", verticle_alignment="center")
+back_btn = Button(0, 0, 0, 0, message="BACK", fit_text_options="text", base_colour=None, horizontal_alignment="center", verticle_alignment="center")
 
 
 class Game:
@@ -22,19 +24,72 @@ class Game:
         self.deck = get_deck()
         self.show = False
 
-        self.hand = [self.draw_card(), self.draw_card()]
-        self.dealer = [self.draw_card(), self.draw_card()]
+        self.hand_total = 0
+        self.dealer_total = 0
+        self.hand_ace = 0
+        self.dealer_ace = 0
+        self.hand = [self.draw_card(True), self.draw_card(True)]
+        self.dealer = [self.draw_card(False), self.draw_card(False)]
 
-        self.max_anim = 5000
+        self.max_anim = 4999
         self.hand_anim = 0
         self.dealer_anim = 0
+        self.flip_card = 0
+        self.dealing = False
 
-    def draw_card(self):
-        return self.deck.pop(0)
+        self.hand_bust = False
+        self.dealer_bust = False
+        self.stood = False
+        self.game_over = True
+
+    def draw_card(self, hand):
+        card = self.deck.pop(0)
+        value = card[:-1]
+        if hand:
+            if value.isnumeric():
+                self.hand_total += int(value)
+            elif value == "A":
+                self.hand_total += 11
+                self.hand_ace += 1
+            else:
+                self.hand_total += 10
+            if self.hand_total > 21 and self.hand_ace:
+                self.hand_total -= 10
+                self.hand_ace -= 1
+        else:
+            if value.isnumeric():
+                self.dealer_total += int(value)
+            elif value == "A":
+                self.dealer_total += 11
+                self.dealer_ace += 1
+            else:
+                self.dealer_total += 10
+            if self.dealer_total > 21 and self.dealer_ace:
+                self.dealer_total -= 10
+                self.dealer_ace -= 1
+
+        return card
+    
+    def is_bust(self, hand=True):
+        if hand:
+            self.hand_bust = self.hand_total > 21
+            if self.hand_bust:
+                self.stand()
+        else:
+            self.dealer_bust = self.dealer_total > 21
 
     def hit(self):
-        self.hand.append(self.draw_card())
-        self.hand_anim = self.max_anim
+        self.game_over = False
+        if not self.dealing and not self.stood:
+            self.hand.append(self.draw_card(True))
+            self.hand_anim = self.max_anim
+            self.dealing = True
+
+    def stand(self):
+        self.stood = True
+        self.show = True
+        self.flip_card = self.max_anim
+        self.dealing = True
 
     def display_cards(self, wn):
         c_width = card_imgs["back"].get_width()
@@ -59,6 +114,8 @@ class Game:
 
         if self.hand_anim < 0:
             self.hand_anim = 0
+            self.dealing = False
+            self.is_bust()
 
         dealer_extra = (right - left) / (len(self.dealer) - 1)
         for i, card in enumerate(self.dealer):
@@ -66,19 +123,52 @@ class Game:
             if i != 0:
                 if self.dealer_anim != 0:
                     if i == len(self.dealer) - 1:
-                        anim_offset = Vector.squish(self.dealer_anim, 0, self.max_anim, 0, left)
+                        anim_offset = Vector.squish(self.dealer_anim, 0, self.max_anim, 0, self.width - right)
                         self.dealer_anim -= 50
                     else:
                         anim_offset = Vector.squish(self.dealer_anim, 0, self.max_anim, 0, dealer_extra) * (i / (len(self.dealer) - 2))
             
             if not self.show and i == 1:
-                wn.blit(card_imgs["back"], (right - dealer_extra * i - anim_offset, top))
+                wn.blit(card_imgs["back"], (left + dealer_extra * i + anim_offset, top))
             else:
-                wn.blit(card_imgs[card], (right - dealer_extra * i - anim_offset, top))
+                wn.blit(card_imgs[card], (left + dealer_extra * i + anim_offset, top))
 
         if self.dealer_anim < 0:
             self.dealer_anim = 0
+            self.dealing = False
 
+    def dealers_turn(self):
+        if self.flip_card == 0:
+            if self.dealer_total < 17:
+                if not self.dealing:
+                    self.dealer.append(self.draw_card(False))
+                    self.dealer_anim = self.max_anim
+                    self.dealing = True
+                    self.is_bust(False)
+            elif not self.dealing:
+                return self.winner()
+
+        elif self.flip_card < 0:
+            self.flip_card = 0
+            self.dealing = False
+        else:
+            self.flip_card -= 100
+        return ""
+
+    def winner(self):
+        self.game_over = True
+        if self.hand_bust and self.dealer_bust:
+            return "Draw"
+        elif self.hand_bust and not self.dealer_bust:
+            return "You Lose"
+        elif not self.hand_bust and self.dealer_bust:
+            return "You Win"
+        elif self.hand_total == self.dealer_total:
+            return "Draw"
+        elif self.hand_total < self.dealer_total:
+            return "You Lose"
+        elif self.hand_total > self.dealer_total:
+            return "You Win"
 
 
 def setup(width, height):
@@ -99,6 +189,24 @@ def setup(width, height):
     stand_btn.x = int(width / 2 + c_width - stand_btn.width / 2)
     stand_btn.y = int(height / 2 - stand_btn.height / 2)
     
+    bust_lbl.width = c_width
+    bust_lbl.height = int(c_height / 3)
+    bust_lbl.fit_text(bust_lbl.message)
+    bust_lbl.x = int(width / 2 - bust_lbl.width / 2)
+    bust_lbl.y = int(height / 2 - bust_lbl.height / 2)
+    
+    outcome_lbl.width = c_width
+    outcome_lbl.height = int(c_height / 3)
+    outcome_lbl.fit_text(outcome_lbl.message)
+    outcome_lbl.x = int(width / 2 - outcome_lbl.width / 2)
+    outcome_lbl.y = int(height / 2 - outcome_lbl.height * 1.5)
+    
+    back_btn.width = c_width
+    back_btn.height = int(c_height / 3)
+    back_btn.fit_text(back_btn.message)
+    back_btn.x = 10
+    back_btn.y = 10
+    
 
 def redraw(wn, bg_img, game):
     wn.blit(bg_img, (0, 0))
@@ -106,6 +214,10 @@ def redraw(wn, bg_img, game):
     game.display_cards(wn)
     hit_btn.draw(wn)
     stand_btn.draw(wn)
+    if game.hand_bust:
+        bust_lbl.draw(wn)
+    outcome_lbl.draw(wn)
+    back_btn.draw(wn)
 
     pygame.display.update()
 
@@ -126,6 +238,10 @@ def Blackjack(wn, WIDTH, HEIGHT, bg_img):
                 if event.button == 1:
                     if hit_btn.click(mouse):
                         game.hit()
+                    if stand_btn.click(mouse):
+                        game.stand()
+                    if back_btn.click(mouse) and game.game_over:
+                        return "back"
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -133,5 +249,8 @@ def Blackjack(wn, WIDTH, HEIGHT, bg_img):
             
             if event.type == pygame.QUIT:
                 return "quit"
+
+        if game.stood:
+            outcome_lbl.message = game.dealers_turn()
 
         redraw(wn, bg_img, game)
